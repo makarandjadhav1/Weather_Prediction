@@ -25,6 +25,7 @@ if 'trained_model' not in st.session_state:
     st.session_state.scaler = None
     st.session_state.label_encoders = None
     st.session_state.feature_columns = None
+    st.session_state.last_data = None
 
 # File uploader section
 st.header("Step 1: Train Your Model")
@@ -80,6 +81,9 @@ if uploaded_file is not None:
             # Store model in session state
             st.session_state.trained_model = model
             
+            # Store the last row of data for prediction
+            st.session_state.last_data = df.iloc[-1].to_dict()
+            
             # Display model performance
             train_score = model.score(X_train_scaled, y_train)
             test_score = model.score(X_test_scaled, y_test)
@@ -115,6 +119,12 @@ if uploaded_file is not None:
 st.header("Step 2: Predict Tomorrow's Weather")
 
 if st.session_state.trained_model is not None:
+    # Display last data used for prediction
+    if st.session_state.last_data is not None:
+        st.subheader("Last Data Used for Prediction")
+        last_data_df = pd.DataFrame([st.session_state.last_data])
+        st.dataframe(last_data_df)
+    
     # Create input form for tomorrow's weather features
     st.subheader("Enter Tomorrow's Weather Features")
     
@@ -129,13 +139,16 @@ if st.session_state.trained_model is not None:
         if column in st.session_state.label_encoders:
             # Get the original categories before encoding
             categories = st.session_state.label_encoders[column].classes_
-            selected = col.selectbox(f"{column}", options=categories)
+            # Use last data value as default if available
+            default_value = st.session_state.last_data.get(column, categories[0])
+            selected = col.selectbox(f"{column}", options=categories, index=list(categories).index(default_value))
             input_data[column] = selected
         else:
             # For numerical features, get min/max from training data to set reasonable bounds
             min_val = float(X[column].min())
             max_val = float(X[column].max())
-            default_val = float(X[column].median())
+            # Use last data value as default if available
+            default_val = float(st.session_state.last_data.get(column, X[column].median()))
             value = col.number_input(f"{column}", min_value=min_val, max_value=max_val, value=default_val)
             input_data[column] = value
     
