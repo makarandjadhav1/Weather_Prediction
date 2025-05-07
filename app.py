@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 import joblib
 import os
 import plotly.express as px
@@ -40,6 +40,14 @@ if uploaded_file is not None:
             X = df.iloc[:, :-1]
             y = df.iloc[:, -1]
             
+            # Handle categorical variables
+            categorical_columns = X.select_dtypes(include=['object']).columns
+            label_encoders = {}
+            
+            for column in categorical_columns:
+                label_encoders[column] = LabelEncoder()
+                X[column] = label_encoders[column].fit_transform(X[column])
+            
             # Split the data
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             
@@ -54,8 +62,14 @@ if uploaded_file is not None:
             
             # Make prediction for tomorrow
             # Use the last row of data as input for tomorrow's prediction
-            tomorrow_data = scaler.transform(X.iloc[[-1]])
-            prediction = model.predict(tomorrow_data)[0]
+            tomorrow_data = X.iloc[[-1]].copy()
+            
+            # Transform categorical variables in tomorrow's data
+            for column in categorical_columns:
+                tomorrow_data[column] = label_encoders[column].transform(tomorrow_data[column])
+            
+            tomorrow_data_scaled = scaler.transform(tomorrow_data)
+            prediction = model.predict(tomorrow_data_scaled)[0]
             
             # Display prediction
             st.subheader("Tomorrow's Weather Prediction")
@@ -88,6 +102,6 @@ if uploaded_file is not None:
             
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
-        st.write("Please make sure your CSV file has the correct format with numerical data.")
+        st.write("Please make sure your CSV file has the correct format. Categorical variables will be automatically encoded.")
 else:
     st.info("Please upload a CSV file to get started.")
